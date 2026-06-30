@@ -1,0 +1,4 @@
+interface:
+  display_name: "价格行为分析"
+  short_description: "把 K 线图生成阿布价格行为标注分析图和交易计划"
+  default_prompt: "Use $price-action-analysis 根据这张 K 线图生成一张带通道、区间、箭头、关键价位和文字标签的价格行为分析图，并给出下一步交易计划、失效条件和不交易条件。"
