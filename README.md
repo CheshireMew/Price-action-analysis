@@ -58,6 +58,29 @@ ln -s "$(pwd)" ~/.claude/skills/price-action-analysis
 ln -s "$(pwd)" /your-project/.claude/skills/price-action-analysis
 ```
 
+## 依赖安装
+
+```bash
+python3 -m pip install Pillow
+```
+
+`render_annotations.py` 仅依赖 Pillow（Python Imaging Library），其余为标准库。如果用 venv：
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install Pillow
+```
+
+### 中文字体环境
+
+标注渲染需要中文字体，不同平台安装方式：
+
+| 平台 | 安装命令 | 备注 |
+|------|---------|------|
+| **Linux (Debian/Ubuntu)** | `sudo apt install fonts-wqy-zenhei` | 推荐，文泉驿正黑 |
+| **Linux (Arch)** | `yay -S wqy-zenhei` | |
+| **macOS** | 无需额外安装 | 系统自带 PingFang / STHeiti |
+| **Windows** | 无需额外安装 | 系统自带微软雅黑 / SimHei |
+
 ## 使用方式
 
 ### Codex
