@@ -160,6 +160,13 @@ def render_text_svg(item: dict[str, Any], width: int, height: int) -> str:
     box_enabled = item.get("box", True)
     pieces: list[str] = []
 
+    if "leader_start" in item and "leader_end" in item:
+        x1, y1 = xy(item["leader_start"], width, height)
+        x2, y2 = xy(item["leader_end"], width, height)
+        pieces.append(
+            f'<line {attrs(x1=f"{x1:.2f}", y1=f"{y1:.2f}", x2=f"{x2:.2f}", y2=f"{y2:.2f}", stroke=item.get("leader_color", "#6b7280"), stroke_width=item.get("leader_width", 2), opacity=item.get("leader_opacity", 0.78), stroke_linecap="round")}/>'
+        )
+
     if box_enabled:
         box_attrs = attrs(
             x=f"{x:.2f}",
@@ -215,10 +222,46 @@ def render_shape_svg(item: dict[str, Any], width: int, height: int) -> str:
         x2, y2 = xy(item.get("end", [0, 0]), width, height)
         return f'<line {attrs(x1=f"{x1:.2f}", y1=f"{y1:.2f}", x2=f"{x2:.2f}", y2=f"{y2:.2f}", stroke=color, stroke_width=stroke_width, stroke_dasharray=item.get("dash"), opacity=opacity, stroke_linecap="round")}/>'
 
+    if typ == "polyline":
+        points = [xy(point, width, height) for point in item.get("points", [])]
+        points_attr = " ".join(f"{x:.2f},{y:.2f}" for x, y in points)
+        return f'<polyline {attrs(points=points_attr, fill=item.get("fill", "none"), stroke=color, stroke_width=stroke_width, stroke_dasharray=item.get("dash"), opacity=opacity, stroke_linecap="round", stroke_linejoin="round")}/>'
+
+    if typ == "bracket":
+        x1, y1 = xy(item.get("start", [0, 0]), width, height)
+        x2, y2 = xy(item.get("end", [0, 0]), width, height)
+        tick = dim(float(item.get("tick", 0.018)), height)
+        direction = -1 if item.get("direction", "up") == "up" else 1
+        path = f"M{x1:.2f},{(y1 + direction * tick):.2f} L{x1:.2f},{y1:.2f} L{x2:.2f},{y2:.2f} L{x2:.2f},{(y2 + direction * tick):.2f}"
+        return f'<path {attrs(d=path, fill="none", stroke=color, stroke_width=stroke_width, stroke_dasharray=item.get("dash"), opacity=opacity, stroke_linecap="round", stroke_linejoin="round")}/>'
+
     if typ == "arrow":
         x1, y1 = xy(item.get("start", [0, 0]), width, height)
         x2, y2 = xy(item.get("end", [0, 0]), width, height)
         return f'<line {attrs(x1=f"{x1:.2f}", y1=f"{y1:.2f}", x2=f"{x2:.2f}", y2=f"{y2:.2f}", stroke=color, stroke_width=stroke_width, opacity=opacity, marker_end="url(#arrowhead)", stroke_linecap="round")}/>'
+
+    if typ == "circle":
+        cx, cy = xy(item.get("center", [0, 0]), width, height)
+        radius = dim(float(item.get("r", item.get("radius", 0.012))), min(width, height))
+        return f'<circle {attrs(cx=f"{cx:.2f}", cy=f"{cy:.2f}", r=f"{radius:.2f}", fill=item.get("fill", "none"), stroke=color, stroke_width=stroke_width, opacity=opacity)}/>'
+
+    if typ == "ellipse":
+        cx, cy = xy(item.get("center", [0, 0]), width, height)
+        rx = dim(float(item.get("rx", 0.020)), width)
+        ry = dim(float(item.get("ry", 0.030)), height)
+        return f'<ellipse {attrs(cx=f"{cx:.2f}", cy=f"{cy:.2f}", rx=f"{rx:.2f}", ry=f"{ry:.2f}", fill=item.get("fill", "none"), stroke=color, stroke_width=stroke_width, opacity=opacity)}/>'
+
+    if typ == "marker":
+        cx, cy = xy(item.get("center", [0, 0]), width, height)
+        radius = dim(float(item.get("r", item.get("radius", 0.012))), min(width, height))
+        label = html.escape(str(item.get("label", "")))
+        fill = item.get("fill", "#ffffff")
+        text_color = item.get("text_color", color)
+        size = dim(float(item.get("size", 0.014)), min(width, height))
+        return "\n  ".join([
+            f'<circle {attrs(cx=f"{cx:.2f}", cy=f"{cy:.2f}", r=f"{radius:.2f}", fill=fill, stroke=color, stroke_width=stroke_width, opacity=opacity)}/>',
+            f'<text {attrs(x=f"{cx:.2f}", y=f"{(cy + size * 0.35):.2f}", fill=text_color, font_size=f"{size:.2f}", font_weight=item.get("weight", 700), text_anchor="middle", font_family="Microsoft YaHei, PingFang SC, Arial, sans-serif")}>{label}</text>',
+        ])
 
     raise ValueError(f"Unsupported annotation type: {typ}")
 
@@ -340,8 +383,56 @@ def render_png(chart_path: Path, annotations_path: Path, output_path: Path) -> N
                 draw_dashed_line(draw, start, end, fill, stroke_width)
             else:
                 draw.line((*start, *end), fill=fill, width=stroke_width)
+        elif typ == "polyline":
+            points = [xy(point, width, height) for point in item.get("points", [])]
+            if len(points) >= 2:
+                if item.get("dash"):
+                    for start, end in zip(points, points[1:]):
+                        draw_dashed_line(draw, start, end, fill, stroke_width)
+                else:
+                    draw.line(points, fill=fill, width=stroke_width, joint="curve")
+        elif typ == "bracket":
+            x1, y1 = xy(item.get("start", [0, 0]), width, height)
+            x2, y2 = xy(item.get("end", [0, 0]), width, height)
+            tick = dim(float(item.get("tick", 0.018)), height)
+            direction = -1 if item.get("direction", "up") == "up" else 1
+            points = [(x1, y1 + direction * tick), (x1, y1), (x2, y2), (x2, y2 + direction * tick)]
+            if item.get("dash"):
+                for start, end in zip(points, points[1:]):
+                    draw_dashed_line(draw, start, end, fill, stroke_width)
+            else:
+                draw.line(points, fill=fill, width=stroke_width, joint="curve")
         elif typ == "arrow":
             draw_arrow(draw, xy(item.get("start", [0, 0]), width, height), xy(item.get("end", [0, 0]), width, height), fill, stroke_width)
+        elif typ == "circle":
+            cx, cy = xy(item.get("center", [0, 0]), width, height)
+            radius = dim(float(item.get("r", item.get("radius", 0.012))), min(width, height))
+            fill_color = item.get("fill")
+            fill_rgba = None if fill_color in (None, "none") else hex_to_rgba(fill_color, float(item.get("fill_opacity", opacity)))
+            draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=fill, width=stroke_width, fill=fill_rgba)
+        elif typ == "ellipse":
+            cx, cy = xy(item.get("center", [0, 0]), width, height)
+            rx = dim(float(item.get("rx", 0.020)), width)
+            ry = dim(float(item.get("ry", 0.030)), height)
+            fill_color = item.get("fill")
+            fill_rgba = None if fill_color in (None, "none") else hex_to_rgba(fill_color, float(item.get("fill_opacity", opacity)))
+            draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), outline=fill, width=stroke_width, fill=fill_rgba)
+        elif typ == "marker":
+            cx, cy = xy(item.get("center", [0, 0]), width, height)
+            radius = dim(float(item.get("r", item.get("radius", 0.012))), min(width, height))
+            marker_fill = hex_to_rgba(item.get("fill", "#ffffff"), float(item.get("fill_opacity", 0.92)))
+            draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=fill, width=stroke_width, fill=marker_fill)
+            label = str(item.get("label", ""))
+            marker_font_size = int(dim(float(item.get("size", 0.014)), min(width, height)))
+            font = load_font(marker_font_size)
+            text_fill = hex_to_rgba(item.get("text_color", color), 1.0)
+            try:
+                bbox = draw.textbbox((0, 0), label, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+            except AttributeError:
+                text_width, text_height = draw.textsize(label, font=font)
+            draw.text((cx - text_width / 2, cy - text_height / 2), label, font=font, fill=text_fill)
         else:
             raise ValueError(f"Unsupported annotation type: {typ}")
 
@@ -352,6 +443,10 @@ def render_png(chart_path: Path, annotations_path: Path, output_path: Path) -> N
         size = int(layout["size"])
         padding = layout["padding"]
         line_height = layout["line_height"]
+        if "leader_start" in item and "leader_end" in item:
+            leader_fill = hex_to_rgba(item.get("leader_color", "#6b7280"), float(item.get("leader_opacity", 0.78)))
+            leader_width = int(item.get("leader_width", 2))
+            draw.line((*xy(item["leader_start"], width, height), *xy(item["leader_end"], width, height)), fill=leader_fill, width=leader_width)
         if item.get("box", True):
             radius = int(item.get("radius", 8))
             box_fill = hex_to_rgba(item.get("box_fill", "#0b0f14"), float(item.get("box_opacity", 0.72)))
