@@ -308,10 +308,22 @@ def load_font(size: int) -> Any:
     from PIL import ImageFont
 
     for path in [
+        # Windows
         r"C:\Windows\Fonts\msyh.ttc",
         r"C:\Windows\Fonts\simhei.ttf",
         r"C:\Windows\Fonts\simsun.ttc",
         r"C:\Windows\Fonts\arial.ttf",
+        # Linux
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        # macOS
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/Library/Fonts/Arial.ttf",
     ]:
         if Path(path).exists():
             return ImageFont.truetype(path, size)
